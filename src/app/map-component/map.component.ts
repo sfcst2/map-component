@@ -1,5 +1,5 @@
-import { Component, OnInit, ViewChild, ElementRef, ViewEncapsulation } from '@angular/core';
-import {Button} from 'primeng/primeng';
+import { Component, OnInit, ViewChild, ElementRef, ViewEncapsulation, ViewChildren, QueryList } from '@angular/core';
+import { Button } from 'primeng/primeng';
 
 @Component({
   selector: 'app-map',
@@ -11,6 +11,9 @@ export class MapComponent implements OnInit {
 
   @ViewChild('map')
   map: ElementRef;
+
+  @ViewChildren('map')
+  viewChildren: QueryList<ElementRef>;
 
   olMap: ol.Map;
 
@@ -51,29 +54,29 @@ export class MapComponent implements OnInit {
   }
 
   private addDrawFeatures(map: ol.Map): void {
-      const features: ol.Collection<ol.Feature> = new ol.Collection<ol.Feature>();
-      // Add a layer for the features
-      this.featureOverlay = new ol.layer.Vector({
-        source: new ol.source.Vector({features: features}),
-        style: new ol.style.Style({
+    const features: ol.Collection<ol.Feature> = new ol.Collection<ol.Feature>();
+    // Add a layer for the features
+    this.featureOverlay = new ol.layer.Vector({
+      source: new ol.source.Vector({ features: features }),
+      style: new ol.style.Style({
+        fill: new ol.style.Fill({
+          color: 'rgba(255, 255, 255, 0.2)'
+        }),
+        stroke: new ol.style.Stroke({
+          color: '#ffcc33',
+          width: 2
+        }),
+        image: new ol.style.Circle({
+          radius: 7,
           fill: new ol.style.Fill({
-            color: 'rgba(255, 255, 255, 0.2)'
-          }),
-          stroke: new ol.style.Stroke({
-            color: '#ffcc33',
-            width: 2
-          }),
-          image: new ol.style.Circle({
-            radius: 7,
-            fill: new ol.style.Fill({
-              color: '#ffcc33'
-            })
+            color: '#ffcc33'
           })
         })
-      });
-      this.featureOverlay.setMap(map);
+      })
+    });
+    this.featureOverlay.setMap(map);
 
-      this.featureOverlay.getSource().getFeatures();
+    this.featureOverlay.getSource().getFeatures();
 
     this.drawPolygon = this.createDrawInteraction(features, 'Polygon');
     this.drawPoint = this.createDrawInteraction(features, 'Point');
@@ -89,10 +92,10 @@ export class MapComponent implements OnInit {
     this.showPointerClicked(features);
   }
 
-  private createDrawInteraction(features: ol.Collection<ol.Feature>, type: ol.geom.GeometryType ): ol.interaction.Draw {
+  private createDrawInteraction(features: ol.Collection<ol.Feature>, type: ol.geom.GeometryType): ol.interaction.Draw {
     return new ol.interaction.Draw({
-          features: features,
-          type: type
+      features: features,
+      type: type
     });
   }
 
@@ -117,7 +120,7 @@ export class MapComponent implements OnInit {
     this.drawLine.setActive(false)
   }
 
-   drawLineClicked(): void {
+  drawLineClicked(): void {
     this.drawPoint.setActive(false);
     this.drawCircle.setActive(false);
     this.drawPolygon.setActive(false);
@@ -138,10 +141,21 @@ export class MapComponent implements OnInit {
    */
   writeFeatures(features: ol.Collection<ol.Feature>): void {
 
-     const featsArr: ol.Feature[] = this.featureOverlay.getSource().getFeatures();
-     if (featsArr) {
+    const featsArr: ol.Feature[] = this.featureOverlay.getSource().getFeatures();
+    if (featsArr) {
       const geoJSON: ol.format.GeoJSON = new ol.format.GeoJSON();
       console.log(geoJSON.writeFeatures(featsArr));
-     }
+    }
+  }
+
+  /**
+   * This function will create a base64 encoded string of the map.
+   */
+  captureScreenshot(): void {
+    const canvasRef: ElementRef = this.viewChildren.find((elemRef: ElementRef) => {
+      return elemRef.nativeElement.querySelector('canvas');
+    });
+
+    console.log(canvasRef.nativeElement.querySelector('canvas').toDataURL());
   }
 }
