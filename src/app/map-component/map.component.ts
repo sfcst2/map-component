@@ -30,11 +30,23 @@ export class MapComponent implements OnInit {
   }
 
   initalizeMap(): void {
+
+    const tileLayer: ol.layer.Tile = new ol.layer.Tile({
+    extent: [-13884991, 2870341, -7455066, 6338219],
+    source: new ol.source.TileWMS(({
+      url: 'http://demo.boundlessgeo.com/geoserver/wms',
+      params: {'LAYERS': 'topp:states', 'TILED': true},
+      serverType: 'geoserver',
+      projection: null
+    }))
+  })
+
     this.olMap = new ol.Map({
       layers: [
         new ol.layer.Tile({
           source: new ol.source.OSM()
-        })
+        }),
+        tileLayer
       ],
       controls: ol.control.defaults({
         attributionOptions: ({
