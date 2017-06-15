@@ -1,0 +1,11 @@
+<div #map class="map-panel">
+    <div name="drawToolContainer" class="draw-tool-container">                                                   
+        <button class="toolbar-button" pButton type="button" (click)="writeFeatures()" label="GeoJSON"></button>
+        <button class="toolbar-button" pButton type="button" (click)="drawCircleClicked()" icon="fa-circle-thin"></button>         
+        <button class="toolbar-button" pButton type="button" (click)="drawPointClicked()" icon="fa-map-pin"></button>
+        <button class="toolbar-button"pButton type="button" (click)="drawLineClicked()" icon="fa-minus"></button>
+        <button class="toolbar-button" pButton type="button" (click)="drawPolygonClicked()" icon="fa-pencil-square-o"></button>
+        <button class="toolbar-button" pButton type="button" (click)="showPointerClicked()" icon="fa-mouse-pointer"></button>                         
+    </div>
+</div>
+
