@@ -1,11 +1,39 @@
-.draw-tool-container{
-    background-color:rgba(0, 0, 0, .7);
+/*.draw-tool-container{    
+    position: absolute;
+    right: 10px;
+    top: 20px;
+    width: 50px;
+    height: 95%;   
+    z-index: 5;            
+}*/
+
+.draw-tool-container{    
+    position: absolute;
+    left: 0px;
+    top: 0px;
     width: 100%;
-    height: 30px;   
-    z-index: 5;
-    top: 0;
-    left: 0;
-    position: absolute;    
+    height: 40px;   
+    z-index: 999999;      
+    background-color:rgba(105, 105, 105, .5);      
+}
+
+.draw-tool-container button{
+    margin-bottom: 5px;   
+    margin-right: 5px; 
+    float:right;
+}
+
+.draw-tool-container button i{
+    margin-right: 2px;
+}
+
+/*
+* We override the angular cdk container because it would appear
+behind the openlayers map otherwise.
+*/
+.cdk-overlay-container {
+    z-index: 9999;
+    top: 40px;
 }
 
 .toolbar-button{

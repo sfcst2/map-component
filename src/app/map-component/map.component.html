@@ -1,12 +1,18 @@
 <div #map class="map-panel">
     <div name="drawToolContainer" class="draw-tool-container">
-        <button class="toolbar-button" pButton type="button" (click)="captureScreenshot()" icon="fa-camera"></button>                                                   
-        <button class="toolbar-button" pButton type="button" (click)="writeFeatures()" label="GeoJSON"></button>
-        <button class="toolbar-button" pButton type="button" (click)="drawCircleClicked()" icon="fa-circle-thin"></button>         
-        <button class="toolbar-button" pButton type="button" (click)="drawPointClicked()" icon="fa-map-pin"></button>
-        <button class="toolbar-button"pButton type="button" (click)="drawLineClicked()" icon="fa-minus"></button>
-        <button class="toolbar-button" pButton type="button" (click)="drawPolygonClicked()" icon="fa-pencil-square-o"></button>
-        <button class="toolbar-button" pButton type="button" (click)="showPointerClicked()" icon="fa-mouse-pointer"></button>                         
+        <button md-button (click)="deleteFeatureActivated()"><i class="fa fa-times"></i>Delete</button>
+        <button md-button [mdMenuTriggerFor]="drawMenu"><i class="fa fa-pencil-square-o"></i>Draw</button>
+        <md-menu #drawMenu="mdMenu" class="menu-container">
+            <button md-menu-item (click)="drawFeatureClicked('Polygon')">Polygon</button>
+            <button md-menu-item (click)="drawFeatureClicked('Circle')">Circle</button>
+            <button md-menu-item (click)="drawFeatureClicked('LineString')">Line</button>
+            <button md-menu-item (click)="drawFeatureClicked('Point')">Point</button>
+        </md-menu>        
+        <!--<button md-mini-fab (click)="captureScreenshot()"><i class="fa fa-camera"></i></button>
+        <button md-mini-fab (click)="drawFeatureClicked('Circle')"><i class="fa fa-circle-thin"></i></button>
+        <button md-mini-fab (click)="drawFeatureClicked('Line')"><i class="fa fa-minus"></i></button>
+        <button md-mini-fab (click)="drawFeatureClicked('Polygon')"><i class="fa fa-pencil-square-o"></i></button>
+        <button md-mini-fab (click)="drawFeatureClicked()"><i class="fa fa-mouse-pointer"></i></button>
+        <button md-mini-fab (click)="writeFeatures()"><i class="fa fa-file-code-o"></i></button>    -->
     </div>
 </div>
-

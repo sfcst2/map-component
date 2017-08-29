@@ -3,7 +3,8 @@ import { NgModule } from '@angular/core';
 
 import { AppComponent } from './app.component';
 import { MapComponent } from './map-component/map.component';
-import {ButtonModule} from 'primeng/primeng';
+import { MdButtonModule, MdMenuModule } from '@angular/material';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 @NgModule({
   declarations: [
@@ -11,8 +12,10 @@ import {ButtonModule} from 'primeng/primeng';
     MapComponent
   ],
   imports: [
+    BrowserAnimationsModule,
     BrowserModule,
-    ButtonModule
+    MdButtonModule,
+    MdMenuModule
   ],
   providers: [],
   bootstrap: [AppComponent]

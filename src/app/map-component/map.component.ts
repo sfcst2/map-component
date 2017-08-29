@@ -1,5 +1,5 @@
-import { Component, OnInit, ViewChild, ElementRef, ViewEncapsulation, ViewChildren, QueryList } from '@angular/core';
-import { Button } from 'primeng/primeng';
+import { ViewEncapsulation, Component, OnInit, ViewChild, ElementRef, ViewChildren, QueryList, Input } from '@angular/core';
+import * as ol from 'openlayers';
 
 @Component({
   selector: 'app-map',
@@ -15,39 +15,42 @@ export class MapComponent implements OnInit {
   @ViewChildren('map')
   viewChildren: QueryList<ElementRef>;
 
-  olMap: ol.Map;
+  // List of draw features to add
+  @Input('drawFeatuers')
+  drawFeatures: ol.geom.GeometryType[] = ['Polygon', 'Point', 'Circle', 'LineString'];
+  // Map containing the draw features we are using
+  drawFeaturesMap: { [key: string]: ol.interaction.Draw; } = {};
 
-  drawPolygon: ol.interaction.Draw;
-  drawPoint: ol.interaction.Draw;
-  drawCircle: ol.interaction.Draw;
-  drawLine: ol.interaction.Draw;
+  olMap: ol.Map;
 
   // Layer where shapes will be drawn
   featureOverlay: ol.layer.Vector;
+
+  deleteFeatureMode = false;
 
   ngOnInit(): void {
     this.initalizeMap();
   }
 
   initalizeMap(): void {
+    // Setup additional layer
+    //   const tileLayer: ol.layer.Tile = new ol.layer.Tile({
+    //   extent: [-13884991, 2870341, -7455066, 6338219],
+    //   source: new ol.source.TileWMS(({
+    //     url: 'http://demo.boundlessgeo.com/geoserver/wms',
+    //     params: {'LAYERS': 'topp:states', 'TILED': true},
+    //     serverType: 'geoserver',
+    //     projection: null
+    //   }))
+    // });
 
-    const tileLayer: ol.layer.Tile = new ol.layer.Tile({
-    extent: [-13884991, 2870341, -7455066, 6338219],
-    source: new ol.source.TileWMS(({
-      url: 'http://demo.boundlessgeo.com/geoserver/wms',
-      params: {'LAYERS': 'topp:states', 'TILED': true},
-      serverType: 'geoserver',
-      projection: null
-    }))
-  })
+    const raster: ol.layer.Tile = new ol.layer.Tile({
+      source: new ol.source.OSM()
+    });
 
+    // Setup the WMS layer
     this.olMap = new ol.Map({
-      layers: [
-        new ol.layer.Tile({
-          source: new ol.source.OSM()
-        }),
-        tileLayer
-      ],
+      layers: [raster],
       controls: ol.control.defaults({
         attributionOptions: ({
           collapsible: false
@@ -65,7 +68,7 @@ export class MapComponent implements OnInit {
     this.olMap.setTarget(this.map.nativeElement);
   }
 
-  private addDrawFeatures(map: ol.Map): void {
+  addDrawFeatures(map: ol.Map): void {
     const features: ol.Collection<ol.Feature> = new ol.Collection<ol.Feature>();
     // Add a layer for the features
     this.featureOverlay = new ol.layer.Vector({
@@ -90,61 +93,102 @@ export class MapComponent implements OnInit {
 
     this.featureOverlay.getSource().getFeatures();
 
-    this.drawPolygon = this.createDrawInteraction(features, 'Polygon');
-    this.drawPoint = this.createDrawInteraction(features, 'Point');
-    this.drawCircle = this.createDrawInteraction(features, 'Circle');
-    this.drawLine = this.createDrawInteraction(features, 'LineString');
+    // Loop through the features that we are using for the map.  We want
+    // to create a ol.interaction.Draw object for each one
+    if (this.drawFeatures) {
+      this.drawFeatures.forEach(drawFeature => {
+        const olDrawFeat: ol.interaction.Draw = this.createDrawInteraction(features, drawFeature);
+        map.addInteraction(olDrawFeat);
 
-    map.addInteraction(this.drawPolygon);
-    map.addInteraction(this.drawPoint);
-    map.addInteraction(this.drawCircle);
-    map.addInteraction(this.drawLine);
+        // Add the listener to detect when we are done drawing
+        const scope: any = this;
+        olDrawFeat.on('drawend', function (evt) {
+          console.log('Draw ended');
+          olDrawFeat.finishDrawing();
+          // Switch back to the pointer once we have drawn. To do that, we want
+          // to call the drawFeatureClicked with null
+          //scope.drawFeatureClicked(null);
+        });
 
-    // Call the show pointer clicked so we are not in draw mode.
-    this.showPointerClicked(features);
+        this.drawFeaturesMap[drawFeature] = olDrawFeat;
+      });
+    }
+
+    // Add the select feature
+    this.addSelectInteraction();
+
+    // // Call the draw features clicked with null so that the cursor
+    // // is used by default
+    // this.drawFeatureClicked(null);
   }
 
-  private createDrawInteraction(features: ol.Collection<ol.Feature>, type: ol.geom.GeometryType): ol.interaction.Draw {
+  createDrawInteraction(features: ol.Collection<ol.Feature>, type: ol.geom.GeometryType): ol.interaction.Draw {
     return new ol.interaction.Draw({
       features: features,
       type: type
+      // finishCondition: ol.events.condition.primaryAction
     });
   }
 
-  drawPolygonClicked(): void {
-    this.drawPoint.setActive(false);
-    this.drawCircle.setActive(false);
-    this.drawPolygon.setActive(true);
-    this.drawLine.setActive(false)
+  /**
+   * Function that will allow us the ability to select a
+   * feature on the map
+   */
+  addSelectInteraction(): void {
+    const selectInteraction = new ol.interaction.Select({
+      condition: ol.events.condition.click
+    });
+    this.olMap.addInteraction(selectInteraction);
+
+    // Add a listener for when we add a item to the Selected
+    // features array.
+    const scope: any = this;
+    selectInteraction.on('select', function (event) {
+      console.log('Selected a feature');
+      if (scope.deleteFeatureMode) {
+        console.log('Removing feature');
+        // Remove any selected features
+        if (event.selected) {
+          for (const selected of event.selected) {
+            scope.featureOverlay.getSource().removeFeature(selected);
+          }
+        }
+        // Remove any deselected features
+        if (event.deselected) {
+          for (const deselected of event.deselected) {
+            scope.featureOverlay.getSource().removeFeature(deselected);
+          }
+        }
+        // Reset the delete mode so we won't delete the next
+        // feature
+        scope.deleteFeatureMode = false;
+      }
+    });
+
+  }
+
+  drawFeatureClicked(drawFeature: ol.geom.GeometryType): void {
+    this.disableAllDrawFeatures();
+    if (drawFeature) {
+      this.enableDrawFeature(drawFeature);
+    }
   }
 
   drawCircleClicked(): void {
-    this.drawPoint.setActive(false);
-    this.drawCircle.setActive(true);
-    this.drawPolygon.setActive(false);
-    this.drawLine.setActive(false);
+    this.disableAllDrawFeatures();
+    this.enableDrawFeature('Circle');
   }
 
-  drawPointClicked(): void {
-    this.drawPoint.setActive(true);
-    this.drawCircle.setActive(false);
-    this.drawPolygon.setActive(false);
-    this.drawLine.setActive(false)
+  enableDrawFeature(type: ol.geom.GeometryType): void {
+    this.drawFeaturesMap[type].setActive(true);
   }
 
-  drawLineClicked(): void {
-    this.drawPoint.setActive(false);
-    this.drawCircle.setActive(false);
-    this.drawPolygon.setActive(false);
-    this.drawLine.setActive(true)
-  }
-
-  showPointerClicked(features: ol.Collection<ol.Feature>): void {
-    this.drawPoint.setActive(false);
-    this.drawCircle.setActive(false);
-    this.drawPolygon.setActive(false);
-    this.drawLine.setActive(false);
-
+  disableAllDrawFeatures(): void {
+    if (this.drawFeatures) {
+      for (let key in this.drawFeaturesMap) {
+        this.drawFeaturesMap[key].setActive(false);
+      }
+    }
   }
 
   /**
@@ -169,5 +213,13 @@ export class MapComponent implements OnInit {
     });
 
     console.log(canvasRef.nativeElement.querySelector('canvas').toDataURL());
+  }
+
+  /**
+   * Function we will get into when we select the delete feature button.
+   * This starts the process of removing a feature.
+   */
+  deleteFeatureActivated(): void {
+    this.deleteFeatureMode = true;
   }
 }
