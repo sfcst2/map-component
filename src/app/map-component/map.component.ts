@@ -23,9 +23,12 @@ export class MapComponent implements OnInit {
 
   olMap: ol.Map;
 
-  // Layer where shapes will be drawn
-  featureOverlay: ol.layer.Vector;
+  source: ol.source.Vector;
+  vector: ol.layer.Vector;
 
+  // Select interaction for the map
+  selectInteraction: ol.interaction.Select;
+  // Boolean indicating that we want to delete a feature
   deleteFeatureMode = false;
 
   ngOnInit(): void {
@@ -33,16 +36,11 @@ export class MapComponent implements OnInit {
   }
 
   initalizeMap(): void {
-    // Setup additional layer
-    //   const tileLayer: ol.layer.Tile = new ol.layer.Tile({
-    //   extent: [-13884991, 2870341, -7455066, 6338219],
-    //   source: new ol.source.TileWMS(({
-    //     url: 'http://demo.boundlessgeo.com/geoserver/wms',
-    //     params: {'LAYERS': 'topp:states', 'TILED': true},
-    //     serverType: 'geoserver',
-    //     projection: null
-    //   }))
-    // });
+    this.source = new ol.source.Vector({ wrapX: false });
+
+    this.vector = new ol.layer.Vector({
+      source: this.source
+    });
 
     const raster: ol.layer.Tile = new ol.layer.Tile({
       source: new ol.source.OSM()
@@ -50,7 +48,7 @@ export class MapComponent implements OnInit {
 
     // Setup the WMS layer
     this.olMap = new ol.Map({
-      layers: [raster],
+      layers: [raster, this.vector],
       controls: ol.control.defaults({
         attributionOptions: ({
           collapsible: false
@@ -64,50 +62,31 @@ export class MapComponent implements OnInit {
 
     // Add the draw features
     this.addDrawFeatures(this.olMap);
-
     this.olMap.setTarget(this.map.nativeElement);
   }
 
   addDrawFeatures(map: ol.Map): void {
-    const features: ol.Collection<ol.Feature> = new ol.Collection<ol.Feature>();
-    // Add a layer for the features
-    this.featureOverlay = new ol.layer.Vector({
-      source: new ol.source.Vector({ features: features }),
-      style: new ol.style.Style({
-        fill: new ol.style.Fill({
-          color: 'rgba(255, 255, 255, 0.2)'
-        }),
-        stroke: new ol.style.Stroke({
-          color: '#ffcc33',
-          width: 2
-        }),
-        image: new ol.style.Circle({
-          radius: 7,
-          fill: new ol.style.Fill({
-            color: '#ffcc33'
-          })
-        })
-      })
-    });
-    this.featureOverlay.setMap(map);
-
-    this.featureOverlay.getSource().getFeatures();
+    const features: ol.Collection<ol.Feature> = new ol.Collection<ol.Feature>();    
 
     // Loop through the features that we are using for the map.  We want
     // to create a ol.interaction.Draw object for each one
     if (this.drawFeatures) {
       this.drawFeatures.forEach(drawFeature => {
-        const olDrawFeat: ol.interaction.Draw = this.createDrawInteraction(features, drawFeature);
+        const olDrawFeat: ol.interaction.Draw = this.createDrawInteraction(drawFeature);
         map.addInteraction(olDrawFeat);
 
         // Add the listener to detect when we are done drawing
         const scope: any = this;
+
+        olDrawFeat.on('drawstart', function (evt) {
+          // When we start drawing, we want to disable the select interaction
+          scope.selectInteraction.setActive(false);
+        });
+
         olDrawFeat.on('drawend', function (evt) {
-          console.log('Draw ended');
-          olDrawFeat.finishDrawing();
           // Switch back to the pointer once we have drawn. To do that, we want
           // to call the drawFeatureClicked with null
-          //scope.drawFeatureClicked(null);
+          scope.drawFeatureClicked(null);
         });
 
         this.drawFeaturesMap[drawFeature] = olDrawFeat;
@@ -116,17 +95,12 @@ export class MapComponent implements OnInit {
 
     // Add the select feature
     this.addSelectInteraction();
-
-    // // Call the draw features clicked with null so that the cursor
-    // // is used by default
-    // this.drawFeatureClicked(null);
   }
 
-  createDrawInteraction(features: ol.Collection<ol.Feature>, type: ol.geom.GeometryType): ol.interaction.Draw {
+  createDrawInteraction(type: ol.geom.GeometryType): ol.interaction.Draw {
     return new ol.interaction.Draw({
-      features: features,
+      source: this.source,
       type: type
-      // finishCondition: ol.events.condition.primaryAction
     });
   }
 
@@ -135,36 +109,44 @@ export class MapComponent implements OnInit {
    * feature on the map
    */
   addSelectInteraction(): void {
-    const selectInteraction = new ol.interaction.Select({
+    this.selectInteraction = new ol.interaction.Select({
       condition: ol.events.condition.click
     });
-    this.olMap.addInteraction(selectInteraction);
+
+    this.olMap.addInteraction(this.selectInteraction);
+
+    // By default we want to turn off selection until the user
+    // presses the delete button
+    this.selectInteraction.setActive(false);
 
     // Add a listener for when we add a item to the Selected
     // features array.
     const scope: any = this;
-    selectInteraction.on('select', function (event) {
-      console.log('Selected a feature');
+
+    this.selectInteraction.on('select', function (event) {
+
       if (scope.deleteFeatureMode) {
-        console.log('Removing feature');
+        // We need to deselect the features before we remove them.  Openlayers
+        // won't let you delete selected features in this manner
+        scope.selectInteraction.getFeatures().clear();
+
         // Remove any selected features
         if (event.selected) {
+
           for (const selected of event.selected) {
-            scope.featureOverlay.getSource().removeFeature(selected);
+            scope.source.removeFeature(selected);
           }
+
+          // Force the Vector layer to refresh once we have deleted any features
+          scope.source.refresh();
+          // Reset the delete mode so we won't delete the next
+          // feature
+          scope.deleteFeatureMode = false;
+          // Turn off the interaction
+          scope.selectInteraction.setActive(false);
         }
-        // Remove any deselected features
-        if (event.deselected) {
-          for (const deselected of event.deselected) {
-            scope.featureOverlay.getSource().removeFeature(deselected);
-          }
-        }
-        // Reset the delete mode so we won't delete the next
-        // feature
-        scope.deleteFeatureMode = false;
       }
     });
-
   }
 
   drawFeatureClicked(drawFeature: ol.geom.GeometryType): void {
@@ -195,9 +177,9 @@ export class MapComponent implements OnInit {
    * Function that will take in a collection of features and write out the
    * geoJSON
    */
-  writeFeatures(features: ol.Collection<ol.Feature>): void {
+  writeFeatures(): void {
 
-    const featsArr: ol.Feature[] = this.featureOverlay.getSource().getFeatures();
+    const featsArr: ol.Feature[] = this.source.getFeatures();
     if (featsArr) {
       const geoJSON: ol.format.GeoJSON = new ol.format.GeoJSON();
       console.log(geoJSON.writeFeatures(featsArr));
@@ -221,5 +203,6 @@ export class MapComponent implements OnInit {
    */
   deleteFeatureActivated(): void {
     this.deleteFeatureMode = true;
+    this.selectInteraction.setActive(true);
   }
 }
