@@ -1,4 +1,5 @@
-import { ViewEncapsulation, Component, OnInit, ViewChild, ElementRef, ViewChildren, QueryList, Input } from '@angular/core';
+import { AfterViewInit, ViewEncapsulation, Component, ViewChild, ElementRef,
+  ViewChildren, QueryList, Input } from '@angular/core';
 import * as ol from 'openlayers';
 
 @Component({
@@ -7,7 +8,7 @@ import * as ol from 'openlayers';
   styleUrls: ['./map.component.css'],
   encapsulation: ViewEncapsulation.None
 })
-export class MapComponent implements OnInit {
+export class MapComponent implements AfterViewInit {
 
   @ViewChild('map')
   map: ElementRef;
@@ -15,11 +16,17 @@ export class MapComponent implements OnInit {
   @ViewChildren('map')
   viewChildren: QueryList<ElementRef>;
 
+  @Input('height')
+  height: string;
+
+  @Input('width')
+  width: string;
+
   // List of draw features to add
   @Input('drawFeatuers')
   drawFeatures: ol.geom.GeometryType[] = ['Polygon', 'Point', 'Circle', 'LineString'];
   // Map containing the draw features we are using
-  drawFeaturesMap: { [key: string]: ol.interaction.Draw; } = {};
+  drawFeaturesMap: Map<string, ol.interaction.Draw> = new Map<string, ol.interaction.Draw>();
 
   olMap: ol.Map;
 
@@ -31,7 +38,10 @@ export class MapComponent implements OnInit {
   // Boolean indicating that we want to delete a feature
   deleteFeatureMode = false;
 
-  ngOnInit(): void {
+  ngAfterViewInit(): void {
+    // This needs to be in the after view init because the canvas has to be drawn
+    // one time.  We need to do this once we have passed in the height/width and it
+    // has rendered
     this.initalizeMap();
   }
 
@@ -66,7 +76,7 @@ export class MapComponent implements OnInit {
   }
 
   addDrawFeatures(map: ol.Map): void {
-    const features: ol.Collection<ol.Feature> = new ol.Collection<ol.Feature>();    
+    const features: ol.Collection<ol.Feature> = new ol.Collection<ol.Feature>();
 
     // Loop through the features that we are using for the map.  We want
     // to create a ol.interaction.Draw object for each one
@@ -89,7 +99,10 @@ export class MapComponent implements OnInit {
           scope.drawFeatureClicked(null);
         });
 
-        this.drawFeaturesMap[drawFeature] = olDrawFeat;
+        // By default we want to draw feature to be disabled
+        olDrawFeat.setActive(false);
+
+        this.drawFeaturesMap.set(drawFeature, olDrawFeat);
       });
     }
 
@@ -156,45 +169,47 @@ export class MapComponent implements OnInit {
     }
   }
 
-  drawCircleClicked(): void {
-    this.disableAllDrawFeatures();
-    this.enableDrawFeature('Circle');
-  }
-
   enableDrawFeature(type: ol.geom.GeometryType): void {
-    this.drawFeaturesMap[type].setActive(true);
+    const drawFeat: ol.interaction.Draw = this.drawFeaturesMap.get(type);
+    if (drawFeat) {
+      drawFeat.setActive(true);
+    }
   }
 
   disableAllDrawFeatures(): void {
     if (this.drawFeatures) {
-      for (let key in this.drawFeaturesMap) {
-        this.drawFeaturesMap[key].setActive(false);
-      }
+      this.drawFeaturesMap.forEach( (val: ol.interaction.Draw) => {
+        val.setActive(false);
+      });
     }
   }
 
   /**
-   * Function that will take in a collection of features and write out the
-   * geoJSON
+   * Function that will take in a collection of features and will return the
+   * geoJSON.
    */
-  writeFeatures(): void {
+  writeFeaturesToGeoJSON(): string {
 
     const featsArr: ol.Feature[] = this.source.getFeatures();
     if (featsArr) {
       const geoJSON: ol.format.GeoJSON = new ol.format.GeoJSON();
       console.log(geoJSON.writeFeatures(featsArr));
+      return geoJSON.writeFeatures(featsArr);
     }
+
+    return null;
   }
 
   /**
-   * This function will create a base64 encoded string of the map.
+   * This function will create a base64 encoded string of the map and return it.
    */
-  captureScreenshot(): void {
+  captureScreenshot(): string {
     const canvasRef: ElementRef = this.viewChildren.find((elemRef: ElementRef) => {
       return elemRef.nativeElement.querySelector('canvas');
     });
 
     console.log(canvasRef.nativeElement.querySelector('canvas').toDataURL());
+    return canvasRef.nativeElement.querySelector('canvas').toDataURL();
   }
 
   /**

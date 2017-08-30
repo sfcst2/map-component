@@ -1,4 +1,4 @@
-<div #map class="map-panel">
+<div #map class="map-panel" [style.height]="height" [style.width]="width">
     <div name="drawToolContainer" class="draw-tool-container">
         <button md-button (click)="deleteFeatureActivated()"><i class="fa fa-times"></i>Delete</button>        
         <button md-button [mdMenuTriggerFor]="drawMenu"><i class="fa fa-pencil-square-o"></i>Draw</button>
